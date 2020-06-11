@@ -1,0 +1,200 @@
+---
+title: "Final Project EDA"
+author: "Maria Arias"
+date: "May 7th, 2020"
+output: html_document
+---
+
+# Overview
+
+The main goal of this exploratory data analysis (EDA) is structured as follows:
+
+## Initial overview of data:
+### Source(s) and any relevant information concerning how the data was collected/formed
+
+- My data comes from the UC Irvine Machine Learning Repository. I originally wanted to deal with air quality data because I had been working on an air quality sensor last quarter, and I also worked with an air quality dataset in Data Science 301-2. Yet the data that I found was not as interesting or starightforward as I expected. For that reason I decided to shift gears and focus on something I truly love, wine. 
+
+- The data was collected in Portugal by a team of researchers that wanted to predict human wine taste preferences based on easily available analytical tests. The dataset is split between red and white "vinho verde" samples, which is Portuguese wine. This information is useful, because if there is a pattern predicted then wine tasting becomes more objective and wine could be produced to fit that criteria. Also, I can use this information to act snobbish when sipping $5 Trader Joes wine.
+
+- Citation: 
+- P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. 
+- In Decision Support Systems, Elsevier, 47(4):547-553, 2009. 
+
+This is the link to the dataset in the UCI repository: http://archive.ics.uci.edu/ml/datasets/Wine+Quality
+
+### Number of observations (n), number of features (p), analysis of missingness (amount and patterns)
+
+The first thing to mention is that there are many more white wine observations than red wine. I'm going to keep both wines seperate because I think that it could be interesting to compare what predictors make for a good red wine as opposed to predictors that make for a good white wine. Therefore, I won't equalize the number of observations for these different types of wine.
+
+There are 12 variables that were collected based on physicochemical tests. I needed to do some extra research on some of them so I included a list with explanations. I gathered the additional information from another UC school, UC Davis' Waterhouse Labs specializes in wine research: https://waterhouse.ucdavis.edu/whats-in-wine/volatile-acidity
+
+These include:
+
+- 1 - fixed acidity
+
+- 2 - volatile acidity 
+
+- 3 - citric acid 
+
+Wines lacking in acid are "flat." Total acidity is divided into two groups, volatile acids and fixed acids. From what I understand we want more fixed acid and less volatile acid. The predominant fixed acids found in wines are citric acids- So those two variaboles should be highly correlated. Wines produced from cool climate grapes are high in acidity and thus taste sour, it also lowers ph. Wine spoilage is legally defined by volatile acidity.
+
+- 4 - residual sugar 
+
+Residual Sugar is the natural grape sugars leftover in a wine after the alcoholic fermentation finishes. During the fermentation process, yeast eats these sugars to make alcohol. That being said, it’s possible to stop the fermentation before all the sugar gets consumed. It’s measured in grams per liter bacause sugar levels vary in different types of wine, which can be generally organized into five different sweetness (bone-dry, dry, dry-off, mediums-sweet, sweet) Dry wines have about 10 g/L of residual sugar while sweet wines have more than 35 g/L.
+
+- 5 - chlorides 
+
+Just contributes saltiness. Grape variety plays a roll in this, but the data excludes brand or grape variety.
+
+- 6 - free sulfur dioxid
+
+FSO2 and the pH of your wine determine how much SO2 is available to help protect the wine from oxidation and spoilage.
+
+It can be hard to predict how much of it will be lost to aeration. Too much FSO2 can be perceptible to consumers, by masking the wine’s own fruity aromas and contributing a sharp/bitter/metallic/chemical flavor or sensation.
+
+- 7 - total sulfur dioxide 
+
+Measuring the TSO2 will tell you whether all the SO2 you think is in the wine is actually there. The maximum allowable concentration for a bottled wine is 350 ppm (mg/L) of TSO2.
+
+- 8 - density 
+
+Density measurements can be used to measure the sugar content
+
+- 9 - pH 
+
+PH in California is around 4.0, which makes it very acidic.
+
+- 10 - sulphates 
+
+- 11 - alcohol 
+
+- 12 - Output variable (based on sensory data): quality (score between 0 and 10)
+
+## Essential Findings (Important or Interesting)
+
+### Thorough univariate investigation of response variable(s)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Data wrangling 
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(knitr)
+library(modelr)
+library(conflicted)
+
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Load data
+red_wine <- read.csv("winequality-red.csv", 
+  sep=";", header=TRUE) %>%
+  as_tibble() %>%
+  clean_names() %>% 
+  mutate(quality_type = if_else(quality >= 5, "above average", "below average")) %>%
+  mutate(wine_type = if_else(quality <= 3, "red", "red")) %>%
+  mutate_if(is_character, factor)
+
+white_wine <- read.csv("winequality-white.csv", 
+  sep=";", header=TRUE) %>%
+  as_tibble() %>%
+  clean_names() %>% 
+  mutate(quality_type = if_else(quality >= 5, "above average", "below average")) %>%
+  mutate(wine_type = if_else(quality <= 3, "white", "white")) %>%
+  mutate_if(is_character, factor)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+red_wine %>% 
+  skim()
+```
+
+When skimming the data, I found that most of the variables in red wine had some substantial outliers when I compared the max values to the mean and the median. I'll probably try to remove these outliers because they could throw off my models, but until I actually look into the data I'll refrain from doing that. The variables I'm looking to correct are: Fixed acidity, residual sugar, free sulfur dioxaide, total sulfur dioxide, chlorides, and sulphates. The mean of the quality is 5.64 which is encouraging, since the range for quality of red wines is (3,8). I'd love to explore the distribution of quality so I made a barplot.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+graph1 <- ggplot(red_wine, aes(quality)) + 
+  geom_bar() +
+  labs(
+    x = "quality",
+    y = "count",
+    title = "Distribution of the Quality of Red Wine"
+  ) +
+  theme_minimal()
+
+ggsave("graph1.png")
+
+graph1
+```
+
+Over 1,200 wines were ranked between 5 and 6 and rarely any of them were ranked an 8. It's interesting that there's no perfect wine. I wanted to see if the white wine dataset reflected this pattern, so I compared them.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#More white wine observations than red wine
+red_and_white <- rbind(red_wine, white_wine)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+rvw_quality <- ggplot(red_and_white, aes(quality, fill = wine_type)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Distribution of the Quality Separated by Wine Type")
+
+ggsave("rvw_quality.png")
+
+rvw_quality
+```
+
+It's evident that people are much more satysfied with white wine. This was just further evidence for me to keep the datasets seperate because what probably works best for white wine is not true for red wine. This led me to make a corrplot for the red wine data and the white wine data, respectively.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+red_wine %>%
+  select(-quality_type, -wine_type) %>% 
+  cor() %>% 
+  corrplot::corrplot()
+```
+
+Red- The strongest negative correlation is between fixed acidity and PH. Alcohol content seems to have a lot to do with density, and the higher the alcohol the higher the quality. The two sulfur dioxide variables are unsurprisingly correlated, yet the volatile acidity and citric acid are negatively correlated. Sugar and chlorides don't have much statistical significance with any other category.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_wine %>%
+  select(-quality_type, -wine_type) %>% 
+  cor() %>% 
+  corrplot::corrplot()
+```
+
+White- There are many more statistically significant realtionships in the white wine data. For starters, there is a stronger correlation between alcohol and density in this dataset. The most important predictors for quality are deinsity and alcohol, as opposed to red wine which prioritized volatile acidity over density. There is also a stronger relationship between residual sugar and density, yet the relatoinship between fixed acidity and ph is not as important.
+
+
+### Interesting/important relationships between response variable(s) and predictor variables.
+The more alcohol, the better the quality according to the corrplot. We know intuitively, that the higher the alcohol content, the less dense the wine is since the the fermentation thins it out.The denser the wine the more residual sugar, since we know that sugar is what is being fermented to make more alcohol so a thick wine has less alcohol and more sugar.
+
+### Interesting/important relationships among predictor variables.
+I just thought that most of the predictors were redundant. Once I start the actual project, I would probably try to reduce the dimensionality or join variables like acid variables to see how they react to ph. What I would infer is that ph should have a negative correlation with all of the acidic variables except the volatile acidity. If anything I was worried that volatile acidity and ph might even show some relationship to each other because they're both negatively related to the other acid variables. I plotted that relationship in the red wine data, but it didn't seem to matter.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(red_wine, aes(p_h, volatile_acidity, color = as.factor(quality))) +
+  geom_point() +
+  labs(
+    title = "Does PH Have a Positive Correlation with Volatile Acidity?")
+```
+
+## Secondary Findings
+### Standard variable explorations for the domain area that are unsurprising and mainly conducted out of convention. 
+Findings that don't seem interesting or important, but show some potential.
+
+I think this data provides a cool space to explore ordered groups. For example, residual sugar provides the opportunity to make sweetness level categories (dry, medium-dry, sweet) that I could evaluate quality for each category. The range of residual sugar is (0.9,15.5) yet that data has a long tail. Either way I cut the boundaries at 0-2 for dry, 2-7 for medium, and 7-16 for sweet.
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+red_wine <- red_wine %>% 
+  mutate(sweetness_level = cut(residual_sugar, breaks = c(0,2,7,16), labels = c("dry", "medium", "sweet")))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(red_wine, aes(quality, fill = as.factor(quality))) +
+  geom_bar() +
+  facet_wrap(~sweetness_level)
+```
+
+
+
